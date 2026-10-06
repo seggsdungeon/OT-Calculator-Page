@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overtime Calculator</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --fg:#1d2330; --muted:#6b7280; --line:#d8dce3; --pos:#15803d; --neg:#b91c1c; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1d2128; --fg:#e6e8eb; --muted:#9aa1ab; --line:#333a44; --pos:#4ade80; --neg:#f87171; --accent:#60a5fa; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui, sans-serif; }
+  main { max-width:420px; margin:2rem auto; padding:0 16px; }
+  h1 { font-size:1.3rem; margin:0 0 1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1rem; }
+  label { display:block; font-size:.85rem; color:var(--muted); margin:.8rem 0 .25rem; }
+  label:first-child { margin-top:0; }
+  .row { display:flex; gap:.5rem; align-items:center; }
+  input[type=time], input[type=number] { width:100%; padding:.5rem; font:inherit; color:inherit; background:transparent; border:1px solid var(--line); border-radius:6px; }
+  input:disabled { opacity:.4; }
+  button { padding:.5rem .8rem; font:inherit; color:var(--accent); background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; }
+  .toggle { display:flex; align-items:center; gap:.4rem; white-space:nowrap; color:var(--fg); margin:0; font-size:1rem; }
+  .unit { color:var(--muted); font-size:.9rem; }
+  .results { margin-top:1rem; }
+  .results div { display:flex; justify-content:space-between; padding:.35rem 0; border-bottom:1px solid var(--line); }
+  .results div:last-child { border-bottom:0; }
+  .results strong { font-variant-numeric:tabular-nums; }
+  .big strong { font-size:1.3rem; }
+  .pos { color:var(--pos); } .neg { color:var(--neg); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Overtime Calculator</h1>
+  <div class="card">
+    <label for="arrive">Arrived at work</label>
+    <input type="time" id="arrive" value="08:00">
+
+    <label for="leave">Leave at</label>
+    <div class="row">
+      <input type="time" id="leave">
+      <button type="button" id="now">Now</button>
+    </div>
+
+    <label for="hours">Work hours</label>
+    <div class="row"><input type="number" id="hours" value="7" min="0" step="0.25"><span class="unit">h</span></div>
+
+    <label for="brk">Break</label>
+    <div class="row">
+      <label class="toggle"><input type="checkbox" id="brkOn" checked> On</label>
+      <input type="number" id="brk" value="45" min="0" step="5"><span class="unit">min</span>
+    </div>
+
+    <label for="avail">Available OT</label>
+    <div class="row"><input type="number" id="avail" value="0" step="0.25"><span class="unit">h</span></div>
+  </div>
+
+  <div class="card results">
+    <div><span>Worked today</span><strong id="worked">–</strong></div>
+    <div><span>OT today</span><strong id="ot">–</strong></div>
+    <div class="big"><span>New OT balance</span><strong id="total">–</strong></div>
+    <div><span>Leave for ±0 OT</span><strong id="even">–</strong></div>
+  </div>
+</main>
+<script>
+  const $ = id => document.getElementById(id);
+  const toMin = v => { if (!v) return null; const [h, m] = v.split(':').map(Number); return h * 60 + m; };
+  const pad = n => String(n).padStart(2, '0');
+  const fmtTime = m => { m = ((Math.round(m) % 1440) + 1440) % 1440; return pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
+  const fmtH = h => (h > 0 ? '+' : '') + h.toFixed(2) + ' h';
+  const num = id => parseFloat($(id).value) || 0;
+
+  function setNow() { const d = new Date(); $('leave').value = pad(d.getHours()) + ':' + pad(d.getMinutes()); calc(); }
+
+  function show(id, h, signed) {
+    const el = $(id);
+    el.textContent = signed ? fmtH(h) : h.toFixed(2) + ' h';
+    el.className = signed ? (h > 0 ? 'pos' : h < 0 ? 'neg' : '') : '';
+  }
+
+  function calc() {
+    $('brk').disabled = !$('brkOn').checked;
+    const a = toMin($('arrive').value), l = toMin($('leave').value);
+    if (a === null || l === null) { ['worked', 'ot', 'total', 'even'].forEach(id => $(id).textContent = '–'); return; }
+    const breakMin = $('brkOn').checked ? num('brk') : 0;
+    let span = l - a; if (span < 0) span += 1440;           // past midnight
+    const worked = Math.max(0, span - breakMin) / 60;
+    const ot = worked - num('hours');
+    show('worked', worked);
+    show('ot', ot, true);
+    show('total', num('avail') + ot, true);
+    $('even').textContent = fmtTime(a + breakMin + num('hours') * 60);
+  }
+
+  document.querySelectorAll('input').forEach(i => i.addEventListener('input', calc));
+  $('now').addEventListener('click', setNow);
+  setNow();
+</script>
+</body>
+</html>
